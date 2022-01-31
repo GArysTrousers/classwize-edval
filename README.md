@@ -1,5 +1,5 @@
 # What is this?
-This is a powershell script to generate a csv of classes for import into Classwize.
+This is a powershell script to generate a csv of classes for importing into Classwize.
 
 It will assign both teachers and students to their classrooms.
 

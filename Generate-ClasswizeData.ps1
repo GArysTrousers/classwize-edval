@@ -20,10 +20,11 @@ Write-Host "Adding Teachers..." -NoNewline
 $sigs = @()
 $csv | ForEach-Object {
   #ignore teacherless classes
+  $teacherCode = $_.TeacherCode
   if ($_.TeacherCode -ne "" -and $_.CourseCode -ne "") {
     try {
       #tests if user exists
-      Get-ADUser -Identity $_.TeacherCode | Out-Null
+      Get-ADUser -Identity $_.TeacherCode -ErrorAction Stop | Out-Null
       #if item is not in List already
       $sig = $_.TeacherCode + ',' + $_.CourseCode + "_" + $_.ClassId + ",true"
       if (!$sigs.Contains($sig)) {
@@ -36,7 +37,7 @@ $csv | ForEach-Object {
       }
     }
     catch {
-      Write-Error $_
+      Write-Host "$teacherCode doesn't exist in AD"
     }
   }
 }
