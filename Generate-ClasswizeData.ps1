@@ -6,64 +6,85 @@ if ($csv[0].StudentCode -notmatch '[A-Za-z]{3}[0-9]{4}') { $csv.RemoveAt(0) }
 $count = $csv.Count
 
 #Students
-Write-Host "Adding Students..." -NoNewline
 $list = @()
 $i = 0
-$studentsTime = Measure-Command {
+$time = Measure-Command {
   $csv | ForEach-Object {
     $i++
     Write-Progress -Activity "Students" -Status "$i/$count" -PercentComplete ($i * 100 / $count)
-    try {
-      #tests if user exists
-      # Get-ADUser -Identity $_.StudentCode -ErrorAction Stop | Out-Null
-      $list += [PSCUSTOMOBJECT]@{
-        user      = $_.StudentCode.ToLower()
-        class     = ($_.CourseCode + $_.ClassId).ToLower()
-        isTeacher = "false"
-      }
-    }
-    catch {
-      Write-Host $StudentCode " doesn't exist in AD"
+    $list += [PSCUSTOMOBJECT]@{
+      user      = $_.StudentCode.ToLower()
+      class     = ($_.CourseCode + "_" + $_.ClassId).ToLower()
+      isTeacher = "false"
     }
   }
 }
-Write-Host "Done. Took" $studentsTime.TotalSeconds "seconds"
+Write-Host ("{0,-30} {1}s" -f "Students Done", $time.TotalSeconds)
 
 
 #Teachers
-Write-Host "Adding Teachers..." -NoNewline
-$sigs = @()
 $i = 0
-$staffTime = Measure-Command {
+$time = Measure-Command {
+  $staff = @{}
   $csv | ForEach-Object {
-    #ignore teacherless classes
     $i++
     Write-Progress -Activity "Staff" -Status "$i/$count" -PercentComplete ($i * 100 / $count)
-    $teacherCode = $_.TeacherCode
     if ($_.TeacherCode -ne "" -and $_.CourseCode -ne "") {
-      try {
-        #tests if user exists
-        # Get-ADUser -Identity $_.TeacherCode -ErrorAction Stop | Out-Null
-        #if item is not in List already
-        $sig = $_.TeacherCode + ',' + $_.CourseCode + "_" + $_.ClassId + ",true"
-        if (!$sigs.Contains($sig)) {
-          $sigs += $sig
-          $list += [PSCUSTOMOBJECT]@{
-            user      = $_.TeacherCode.ToLower()
-            class     = ($_.CourseCode + $_.ClassId).ToLower()
-            isTeacher = "true"
-          }
-        }
-      }
-      catch {
-        Write-Host "$teacherCode doesn't exist in AD"
+      $staff[$_.TeacherCode + "_" + $_.CourseCode + "_" + $_.ClassId] = [PSCUSTOMOBJECT]@{
+        user      = $_.TeacherCode.ToLower()
+        class     = ($_.CourseCode + "_" + $_.ClassId).ToLower()
+        isTeacher = "true"
       }
     }
   }
 }
-Write-Host "Done. Took" $staffTime.TotalSeconds "seconds"
+Write-Host ("{0,-30} {1}s" -f "Staff Done", $time.TotalSeconds)
+
+$time = Measure-Command {
+  $uniqueStaff = $staff.Clone()
+  $count = $uniqueStaff.Count
+  $i = 0
+  foreach ($s in $uniqueStaff.GetEnumerator()) {
+    $i++
+    Write-Progress -Activity "Varifying Staff" -Status "$i/$count" -PercentComplete ($i * 100 / $count)
+    try {
+      Get-ADUser -Identity $s.Value.user -ErrorAction Stop | Out-Null
+    }
+    catch {
+      $staff.Remove($s.Key)
+    }
+  }
+  $list += $staff.Values
+}
+Write-Host ("{0,-30} {1}s" -f "Varifying Staff Done", $time.TotalSeconds)
 
 
 
-$list | Export-Csv -Path "./Classwize.csv" -NoTypeInformation -Delimiter "," -UseQuotes:Never
-Write-Host "File Exported: Classwize.csv"
+$classes = @{}
+
+$list | ForEach-Object {
+  $classes[$_.class] += @($_)
+}
+
+if (Test-Path "./Classes") {
+  Get-ChildItem "./Classes/*" | Remove-Item
+} else {
+  New-Item "./Classes" -ItemType "directory" | Out-Null
+}
+
+foreach ($c in $classes.GetEnumerator() ) {
+  $hasTeacher = $false
+  $outStr = ""
+  # Write-Host $c.Name $c.Value.Count
+  # $c.Value | Format-Table
+  foreach ($i in $c.Value) {
+    if ($i.isTeacher -eq "true") {
+      $hasTeacher = $true
+    }
+    $outStr += "{0},{1},{2}`n" -f $i.user, $i.class, $i.isTeacher
+  }
+  if ($hasTeacher) {
+    $outStr | Set-Content "./Classes/$($c.Key).csv"
+  }
+}
+Write-Host "Class Files Exported"
