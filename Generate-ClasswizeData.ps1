@@ -5,7 +5,7 @@ if ($csv[0].StudentCode -notmatch '[A-Za-z]{3}[0-9]{4}') { $csv.RemoveAt(0) }
 
 $count = $csv.Count
 
-#Students
+# Students
 $list = @()
 $i = 0
 $time = Measure-Command {
@@ -22,7 +22,7 @@ $time = Measure-Command {
 Write-Host ("{0,-30} {1}s" -f "Students Done", $time.TotalSeconds)
 
 
-#Teachers
+# Teachers
 $i = 0
 $time = Measure-Command {
   $staff = @{}
@@ -40,6 +40,8 @@ $time = Measure-Command {
 }
 Write-Host ("{0,-30} {1}s" -f "Staff Done", $time.TotalSeconds)
 
+
+#Varify Teachers Exist
 $time = Measure-Command {
   $uniqueStaff = $staff.Clone()
   $count = $uniqueStaff.Count
@@ -59,7 +61,7 @@ $time = Measure-Command {
 Write-Host ("{0,-30} {1}s" -f "Varifying Staff Done", $time.TotalSeconds)
 
 
-
+# Create Classes
 $classes = @{}
 
 $list | ForEach-Object {
@@ -72,6 +74,7 @@ if (Test-Path "./Classes") {
   New-Item "./Classes" -ItemType "directory" | Out-Null
 }
 
+# Write to files
 foreach ($c in $classes.GetEnumerator() ) {
   $hasTeacher = $false
   $outStr = ""
