@@ -1,3 +1,20 @@
+Import-Module ActiveDirectory -Force -ErrorAction Stop
+
+# Get Paths Ready
+if (Test-Path "./Classes") {
+  Get-ChildItem "./Classes/*" | Remove-Item
+} else {
+  New-Item "./Classes" -ItemType "directory" | Out-Null
+}
+@("07", "08", "09", "10", "11", "12") | ForEach-Object {
+  New-Item "./Classes/Year$($_)" -ItemType "directory" | Out-Null
+}
+if (Test-Path "./Years") {
+  Get-ChildItem "./Years/*" | Remove-Item
+} else {
+  New-Item "./Years" -ItemType "directory" | Out-Null
+}
+
 #import csv and convert to collection object
 $csv = { Import-Csv -Path "All students.csv" -Header StudentCode, Surname, Firstname, Year, FloatsLetter, FloatsNumber, CourseCode, ClassId, ClassYear, TeacherCode, TeacherName, Subject }.Invoke()
 #remove header row
@@ -16,6 +33,7 @@ $time = Measure-Command {
       user      = $_.StudentCode.ToLower()
       class     = ($_.CourseCode + "_" + $_.ClassId).ToLower()
       isTeacher = "false"
+      year      = $_.Year
     }
   }
 }
@@ -34,6 +52,7 @@ $time = Measure-Command {
         user      = $_.TeacherCode.ToLower()
         class     = ($_.CourseCode + "_" + $_.ClassId).ToLower()
         isTeacher = "true"
+        year      = $_.Year
       }
     }
   }
@@ -68,14 +87,8 @@ $list | ForEach-Object {
   $classes[$_.class] += @($_)
 }
 
-if (Test-Path "./Classes") {
-  Get-ChildItem "./Classes/*" | Remove-Item
-} else {
-  New-Item "./Classes" -ItemType "directory" | Out-Null
-}
-
-# Write to files
-foreach ($c in $classes.GetEnumerator() ) {
+# Write Classes to files
+foreach ($c in $classes.GetEnumerator()) {
   $hasTeacher = $false
   $outStr = ""
   # Write-Host $c.Name $c.Value.Count
@@ -87,7 +100,8 @@ foreach ($c in $classes.GetEnumerator() ) {
     $outStr += "{0},{1},{2}`n" -f $i.user, $i.class, $i.isTeacher
   }
   if ($hasTeacher) {
-    $outStr | Set-Content "./Classes/$($c.Key).csv"
+    $outStr | Set-Content "./Classes/Year$($c.Value[0].year)/$($c.Key).csv"
+    $outStr | Add-Content "./Years/Year$($c.Value[0].year).csv"
   }
 }
 Write-Host "Class Files Exported"
